@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sistema de Gestión de Packing List & Códigos QR - Moto Galería</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#f1f5f9;--card:#fff;--ink:#1e293b;--mut:#64748b;--line:#e2e8f0;--pri:#2563eb;--ok:#16a34a;--bad:#dc2626;--nav:#0f172a}
+body{margin:0;font:14px/1.4 "Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;height:100vh;display:flex;flex-direction:column;color:var(--ink);background:var(--bg)}
+button{padding:8px 14px;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:8px;cursor:pointer;font:inherit;font-weight:500;transition:.15s}
+button:hover:not(:disabled){filter:brightness(.96);transform:translateY(-1px)}
+button:disabled{opacity:.55;cursor:default}
+.b-az{background:var(--pri);color:#fff;border-color:var(--pri)}.b-vd{background:var(--ok);color:#fff;border-color:var(--ok)}.b-rj{background:var(--bad);color:#fff;border-color:var(--bad)}
+input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;color:var(--ink)}
+input:focus{outline:2px solid #93c5fd;border-color:var(--pri)}
+#top{background:var(--nav);padding:12px 18px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+#top label{color:#cbd5e1;display:flex;align-items:center;gap:8px;margin-right:6px}
+#top input{width:200px;border:0}
+#top button:not(.b-vd):not(.b-rj){background:#1e293b;color:#e2e8f0;border-color:#334155}
+#main{flex:1;display:flex;min-height:0;gap:16px;padding:16px}
+#center{flex:1;overflow:auto;min-width:0;background:var(--card);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid var(--line)}
+#side{width:270px;background:var(--card);padding:18px;display:flex;flex-direction:column;gap:16px;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);border:1px solid var(--line);align-self:flex-start}
+#side::before{content:"Vista previa QR";font-weight:600;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+#qr{width:232px;height:232px;border:2px dashed var(--line);border-radius:10px;object-fit:contain;background:#fff;padding:4px}
+#bPrint{height:42px;background:var(--pri);color:#fff;border-color:var(--pri)}
+#info{padding:6px 18px;color:var(--mut);background:#fff;border-top:1px solid var(--line);font-size:13px}
+table{border-collapse:collapse;width:100%}
+th,td{padding:9px 12px;text-align:left;border-bottom:1px solid var(--line)}
+th{background:#f8fafc;position:sticky;top:0;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.04em;z-index:1}
+tbody tr:nth-child(even) td{background:#fafbfd}
+tbody tr:hover td{background:#eff6ff}
+tr.sel td{background:#dbeafe!important;color:#1e3a8a;font-weight:500}
+tr{user-select:none}
+td[contenteditable=true]{user-select:text;cursor:text}
+td[contenteditable=true]:focus{outline:2px solid var(--pri);background:#fff!important}
+dialog{border:0;border-radius:14px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.3);color:var(--ink)}
+dialog::backdrop{background:rgba(15,23,42,.55)}
+dialog h3{margin:0 0 12px}
+dialog label{display:flex;justify-content:space-between;gap:12px;margin:10px 0;align-items:center;color:var(--mut)}
+dialog input{width:200px}
+dialog button.full{width:100%;padding:11px;margin-top:12px;background:var(--pri);color:#fff;border-color:var(--pri)}
+dialog button.full.b-vd{background:var(--ok);border-color:var(--ok)}
+#loginbox{position:fixed;inset:0;background:linear-gradient(135deg,#0f172a,#1d4ed8);display:flex;align-items:center;justify-content:center;z-index:9}
+#loginform{background:#fff;padding:32px;width:340px;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+#loginform h3{margin:0 0 4px;font-size:20px}
+#loginform p{margin:0 0 18px;color:var(--mut);font-size:13px}
+#loginform label{display:block;margin:12px 0;color:var(--mut);font-size:13px}
+#loginform input{width:100%;margin-top:4px}
+#loginform button{width:100%;padding:11px;margin-top:8px}
+#print{display:none}
+@media(max-width:800px){#main{flex-direction:column}#side{width:100%;flex-direction:row;flex-wrap:wrap;gap:10px}}
+@media print{
+ @page{size:letter;margin:1cm}
+ body>*:not(#print){display:none!important}
+ body{display:block;height:auto}
+ #print{display:block}
+ .pg{page-break-after:always;height:25.8cm}
+ .et{border:2px solid #000;background:#fff;height:12.6cm;margin-bottom:.6cm;position:relative;font-family:Arial,sans-serif;overflow:hidden}
+ .et .emp{font-weight:bold;font-size:12pt;padding:8px 10px;border-bottom:1px solid #000;height:34px}
+ .et .num{position:absolute;left:10px;top:46px;right:150px;height:85px;display:flex;align-items:center;justify-content:center;font:900 38pt "Arial Black",Arial,sans-serif}
+ .et .qrw{position:absolute;right:15px;top:46px;width:120px;height:120px}
+ .et .qrw img,.et .qrw div{width:120px;height:120px}
+ .et .qrw div{border:2px solid red;color:red;font-weight:bold;display:flex;align-items:center;justify-content:center}
+ .et table{position:absolute;left:10px;right:10px;top:172px;width:calc(100% - 20px);bottom:42px;font-size:9.5pt;table-layout:fixed;height:calc(12.6cm - 214px)}
+ .et th{font-size:9pt;text-align:center;height:25px;position:static;background:none;border:1px solid #000}
+ .et td{border:1px solid #000;vertical-align:top;overflow:hidden}
+ .et td.c{text-align:center;vertical-align:middle}
+ .et .dest{position:absolute;left:12px;bottom:8px;font-weight:bold;font-size:9pt}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginbox">
+ <form id="loginform">
+  <h3>Moto Galería</h3>
+  <p>Packing List &amp; Códigos QR · Inicio de Sesión - Control de Acceso</p>
+  <label>Usuario <input id="usr" autocomplete="off"></label>
+  <label>Contraseña <input id="pwd" type="password"></label>
+  <button class="b-az">Ingresar</button>
+ </form>
+</div>
+
+<div id="top">
+ <label>Buscar: <input id="buscar"></label>
+ <button id="bExcel">1. Cargar Excel</button>
+ <button id="bGS" class="b-vd">Cargar GSheets</button>
+ <button id="bExpG">2. Exportar Google</button>
+ <button id="bCSV">3. Exportar CSV</button>
+ <button id="bManual">Agregar Manual</button>
+ <button id="bLimpiar" class="b-rj">Limpiar Todo</button>
+ <input type="file" id="fileExcel" accept=".xlsx,.xls" style="display:none">
+</div>
+<div id="main">
+ <div id="center"><table><thead id="thead"></thead><tbody id="tbody"></tbody></table></div>
+ <div id="side">
+  <img id="qr" alt="">
+  <button id="bPrint" style="height:40px">Imprimir QR</button>
+ </div>
+</div>
+<div id="info"> Listo.</div>
+
+<!-- Parámetros de carga -->
+<dialog id="dlgCarga">
+ <form method="dialog">
+  <h3 style="margin-top:0">Parámetros de Carga</h3>
+  <label>Fecha Carga: <input type="datetime-local" id="pFecha"></label>
+  <label>Número Consecutivo: <input type="number" id="pConsec" min="1" max="999999" value="1"></label>
+  <button class="full" value="ok">Aceptar</button>
+ </form>
+</dialog>
+
+<!-- Alta manual -->
+<dialog id="dlgManual">
+ <form id="formManual" method="dialog">
+  <h3 style="margin-top:0">Agregar Producto Manualmente</h3>
+  <label>Nº Consecutivo: <input id="mCons"></label>
+  <label>Packing List: <input id="mPack"></label>
+  <label>Sr. No.: <input id="mSr"></label>
+  <label>Part No.: <input id="mPart"></label>
+  <label>Descripción: <input id="mDesc"></label>
+  <label>Qty: <input id="mQty"></label>
+  <label>Case No.: <input id="mCase"></label>
+  <label>Ubicación: <input id="mUbi"></label>
+  <button type="button" id="bGuardarManual" class="full b-vd">Guardar Registro</button>
+ </form>
+</dialog>
+
+<div id="print"></div>
+
+<script>
+/* ===== 1. VARIABLES GLOBALES Y CONFIGURACIÓN ===== */
+const CLAVE_XML = "historico_packing";               // equivale a historico_packing.xml
+const URL_WEB_APP = "https://script.google.com/macros/s/AKfycbwqxVsN7Znqnw0H2IO8guaCPey1I_w1709cEUXL7ci8YshVaAhwakiygpB89MaoCVpW9w/exec";
+const COLS = ["Fecha Carga","Numero Consecutivo","Packing List No.","Sr. No.","Part No.","Descrtion","Qty","Case No.","Ubicacion"];
+const BUSCAR_COLS = ["Fecha Carga","Numero Consecutivo","Packing List No.","Part No.","Descrtion","Case No.","Ubicacion"];
+let esSupervisor = false, dt = [], selected = new Set(), current = null, anchor = null, filasAExportar = [];
+const $ = id => document.getElementById(id);
+
+/* Módulos de soporte */
+const ModuloFormatos = {
+ formatearTextoLimpio: s => !s ? "" : s.replace(/"/g,'\\"').replace(/[\r\n]+/g," "),
+ esNumeroValido: v => v.trim() !== "" && !isNaN(Number(v))
+};
+const LogAuditoria = { registrarEvento(m){ try{ const k="bitacora_sistema"; localStorage.setItem(k,(localStorage.getItem(k)||"")+`[${fmt(new Date(),true)}] ${m}\n`);}catch(e){} } };
+const ConfiguracionGlobal = { ServidorEndpoint:URL_WEB_APP, NombreEmpresa:"MOTO GALERÍA S.A. DE C.V.", SucursalDestino:"ALMACÉN GENERAL TUXTLA", TamanoEtiquetaAncho:200, TamanoEtiquetaAlto:200,
+ obtenerDetallesConfiguracion(){ return `Empresa: ${this.NombreEmpresa} | Destino: ${this.SucursalDestino}`; } };
+const ManejadorEstructuras = { validarEsquemaTabla(t){ t.forEach(r=>COLS.forEach(c=>{ if(!(c in r)) r[c]=""; })); } };
+
+const pad = n => String(n).padStart(2,"0");
+function fmt(d, seg){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` + (seg?`:${pad(d.getSeconds())}`:""); }
+const esc = s => String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const setInfo = t => $("info").textContent = t;
+const nuevaFila = () => Object.fromEntries(COLS.map(c=>[c,""]));
+
+/* ===== 2. LOGIN ===== */
+$("loginform").addEventListener("submit", e=>{
+ e.preventDefault();
+ const u=$("usr").value.trim(), p=$("pwd").value.trim();
+ if(u==="admin"&&p==="1234") esSupervisor=true;
+ else if(u==="operador"&&p==="1234") esSupervisor=false;
+ else { alert("Credenciales incorrectas. Verifique el usuario y la contraseña."); return; }
+ $("loginbox").style.display="none";
+ iniciar();
+});
+
+/* ===== 3-4. UI Y PERSISTENCIA LOCAL (reemplaza el XML) ===== */
+function iniciar(){
+ $("thead").innerHTML = "<tr>"+COLS.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr>";
+ cargarHistorico(); render();
+}
+function cargarHistorico(){
+ try{
+  const s = localStorage.getItem(CLAVE_XML);
+  if(s){ dt = JSON.parse(s); ManejadorEstructuras.validarEsquemaTabla(dt); setInfo("Histórico cargado: "+dt.length+" registros."); return; }
+ }catch(e){}
+ dt = [];
+}
+function guardarHistorico(){ try{ localStorage.setItem(CLAVE_XML, JSON.stringify(dt)); }catch(e){} }
+
+function vista(){
+ const f = $("buscar").value.trim().toLowerCase();
+ if(!f) return dt;
+ return dt.filter(r=>BUSCAR_COLS.some(c=>String(r[c]??"").toLowerCase().includes(f)));
+}
+function render(){
+ const v = vista();
+ if(!current || !v.includes(current)) { current = v[0] || null; if(current && selected.size===0) selected.add(current); }
+ selected.forEach(r=>{ if(!v.includes(r)) selected.delete(r); });
+ $("tbody").innerHTML = v.map((r,i)=>`<tr data-i="${i}" class="${selected.has(r)?"sel":""}">`+COLS.map(c=>`<td data-c="${esc(c)}"${esSupervisor?' contenteditable="true"':""}>${esc(r[c]??"")}</td>`).join("")+"</tr>").join("");
+ actualizarQR();
+}
+$("tbody").addEventListener("click", e=>{
+ const tr=e.target.closest("tr"); if(!tr) return;
+ const v=vista(), i=+tr.dataset.i, r=v[i];
+ if(e.shiftKey && anchor && v.includes(anchor)){
+  const a=v.indexOf(anchor), [x,y]=a<i?[a,i]:[i,a];
+  selected=new Set(v.slice(x,y+1));
+ } else if(e.ctrlKey||e.metaKey){ selected.has(r)?selected.delete(r):selected.add(r); anchor=r; }
+ else { selected=new Set([r]); anchor=r; }
+ current=r; refrescarSeleccion();
+});
+function refrescarSeleccion(){
+ const v=vista();
+ [...$("tbody").rows].forEach((tr,i)=>tr.classList.toggle("sel",selected.has(v[i])));
+ actualizarQR();
+}
+$("tbody").addEventListener("input", e=>{
+ if(!esSupervisor) return;
+ const td=e.target.closest("td"), tr=e.target.closest("tr"); if(!td) return;
+ vista()[+tr.dataset.i][td.dataset.c]=td.textContent; guardarHistorico();
+});
+document.addEventListener("keydown", e=>{
+ if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==="a"&&!/INPUT|TEXTAREA/.test(e.target.tagName)&&!e.target.isContentEditable&&$("loginbox").style.display==="none"&&!document.querySelector("dialog[open]")){
+  e.preventDefault(); selected=new Set(vista()); refrescarSeleccion();
+ }
+});
+$("buscar").addEventListener("input", render);
+
+/* ===== 5. LIMPIEZA ===== */
+$("bLimpiar").onclick = ()=>{
+ if(!confirm("¿Está seguro de que desea limpiar todos los registros actuales?")) return;
+ $("buscar").value=""; dt=[]; selected=new Set(); current=null;
+ try{ localStorage.removeItem(CLAVE_XML);}catch(e){}
+ $("qr").removeAttribute("src");
+ render();
+ setInfo(" Formulario y registros limpiados correctamente.");
+ alert("Se ha limpiado la tabla y la vista previa.");
+};
+
+/* ===== 6. EXCEL ===== */
+$("bExcel").onclick = ()=>{ $("fileExcel").value=""; $("fileExcel").click(); };
+$("fileExcel").onchange = e=>{
+ const f=e.target.files[0]; if(!f) return;
+ const dlg=$("dlgCarga"); $("pFecha").value=fmt(new Date()).replace(" ","T"); $("pConsec").value=1;
+ dlg.returnValue="";
+ dlg.onclose = ()=>{
+  let fecha=fmt(new Date()), cons=1;
+  if(dlg.returnValue==="ok"){
+   if($("pFecha").value) fecha=$("pFecha").value.replace("T"," ");
+   cons=Math.min(999999,Math.max(1,parseInt($("pConsec").value)||1));
+  }
+  procesarExcel(f,fecha,cons);
+ };
+ dlg.showModal();
+};
+const isNumeric = s => { s=String(s).trim(); return /\d/.test(s) && /^[+-]?(\d{1,3}(,\d{3})+|\d*)(\.\d*)?([eE][+-]?\d+)?$/.test(s); };
+async function procesarExcel(file, fechaCarga, consecutivoInicial){
+ try{
+  if(!/\.(xlsx|xls)$/i.test(file.name)){ alert("Formato no soportado."); return; }
+  const wb = XLSX.read(await file.arrayBuffer(), {type:"array"});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const filas = XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:null,blankrows:true});
+  const nCols = filas.reduce((m,r)=>Math.max(m,r.length),0);
+  const g = (r,c)=> (r[c]===undefined||r[c]===null)?null:String(r[c]);
+  let agregados=0, pl="", caso="", num=consecutivoInicial; const mapa=new Map();
+  for(const row of filas){
+   let texto=""; for(let c=0;c<nCols;c++){ const v=g(row,c); if(v!==null) texto+=v+" "; }
+   const up=texto.toUpperCase();
+   if(up.includes("PACKING LIST NO")){
+    let m=texto.match(/packing\s*list\s*no\.?\s*(\d+)/i);
+    if(m) pl=m[1]; else { const n=texto.match(/\d{6,}/); if(n) pl=n[0]; }
+    continue;
+   }
+   if(up.includes("CASE BOX NUMBER")){
+    const m=texto.match(/case\s*box\s*number\s*(\d+)\s*\/\s*(\d+)/i);
+    caso = m ? `Case ${m[1]} of ${m[2]}` : texto.trim();
+    continue;
+   }
+   const col0 = nCols>0 && g(row,0)!==null ? g(row,0).trim() : "";
+   if(/^[+-]?\d+$/.test(col0) && Math.abs(parseInt(col0))<=2147483647){
+    const partNo = nCols>1 && g(row,1)!==null ? g(row,1).trim() : "";
+    let idxQty=-1, qty="";
+    for(let c=nCols-1;c>=2;c--){ const v=g(row,c); if(v!==null && isNumeric(v)){ qty=v.trim(); idxQty=c; break; } }
+    const fin = idxQty>2 ? idxQty-1 : nCols-1; const desc=[];
+    for(let c=2;c<=fin;c++){ const v=g(row,c); if(v!==null){ const t=v.trim(); if(t && !isNumeric(t)) desc.push(t); } }
+    let cons;
+    if(mapa.has(caso)) cons=mapa.get(caso); else { cons=num; mapa.set(caso,cons); num++; }
+    dt.push({"Fecha Carga":fechaCarga,"Numero Consecutivo":String(cons),"Packing List No.":pl,"Sr. No.":col0,"Part No.":partNo,"Descrtion":desc.join(" ").trim(),"Qty":qty,"Case No.":caso,"Ubicacion":""});
+    agregados++;
+   }
+  }
+  guardarHistorico(); render();
+  setInfo("Histórico: "+dt.length+" registros.");
+  alert("Se importaron "+agregados+" registros válidos. Las cajas repetidas conservan su mismo consecutivo.");
+ }catch(ex){ alert("Error al leer Excel: "+ex.message); }
+}
+
+/* ===== 7. GOOGLE SHEETS (IMPORTAR) ===== */
+$("bGS").onclick = async ()=>{
+ const b=$("bGS"); b.disabled=true; b.textContent="CARGANDO...";
+ try{
+  const resp = await fetch(URL_WEB_APP);
+  if(!resp.ok){ alert("Error al obtener datos: "+resp.status); return; }
+  procesarJSONGoogleSheets(await resp.text());
+ }catch(ex){ alert("Error al conectar con Google Sheets: "+ex.message); }
+ finally{ b.disabled=false; b.textContent="Cargar GSheets"; }
+};
+function extraerValorJSON(chunk, clave){
+ const m=chunk.match(new RegExp('"'+clave+'"\\s*:\\s*"(.*?)"'));
+ return m ? m[1].replace(/\\"/g,'"') : "";
+}
+function procesarJSONGoogleSheets(json){
+ try{
+  let j=json.trim();
+  if(j.startsWith("[")&&j.endsWith("]")) j=j.slice(1,-1).trim();
+  if(!j){ alert("No se encontraron registros en la hoja de Google Sheets."); return; }
+  const claves=["fecha","consecutivo","packingList","srNo","partNo","desc","qty","caseNo","ubicacion"];
+  let items;
+  try{ const a=JSON.parse(json); items=Array.isArray(a)?a.map(o=>Object.fromEntries(claves.map(k=>[k,String(o[k]??"")]))):null; }catch(e){ items=null; }
+  if(!items) items=j.split(/\}\s*,\s*\{/).map(el=>{ const s=el.replace(/[{}]/g,""); return Object.fromEntries(claves.map(k=>[k,extraerValorJSON(s,k)])); });
+  items.forEach(o=>dt.push({"Fecha Carga":o.fecha,"Numero Consecutivo":o.consecutivo,"Packing List No.":o.packingList,"Sr. No.":o.srNo,"Part No.":o.partNo,"Descrtion":o.desc,"Qty":o.qty,"Case No.":o.caseNo,"Ubicacion":o.ubicacion}));
+  guardarHistorico(); render();
+  setInfo("Histórico: "+dt.length+" registros.");
+  alert("Se cargaron exitosamente "+items.length+" registros desde Google Sheets.");
+ }catch(ex){ alert("Error al interpretar los datos de Google Sheets: "+ex.message); }
+}
+
+/* ===== 8. REGISTRO MANUAL ===== */
+$("bManual").onclick = ()=>{ $("formManual").reset(); $("dlgManual").showModal(); };
+$("bGuardarManual").onclick = ()=>{
+ if(!$("mPart").value.trim() || !$("mCase").value.trim()){ alert("Part No. y Case No. son obligatorios."); return; }
+ const t=id=>$(id).value.trim();
+ dt.push({"Fecha Carga":fmt(new Date()),"Numero Consecutivo":t("mCons"),"Packing List No.":t("mPack"),"Sr. No.":t("mSr"),"Part No.":t("mPart"),"Descrtion":t("mDesc"),"Qty":t("mQty"),"Case No.":t("mCase"),"Ubicacion":t("mUbi")});
+ guardarHistorico(); render();
+ setInfo("Histórico: "+dt.length+" registros.");
+ $("dlgManual").close();
+};
+
+/* ===== 9. EXPORTACIÓN GOOGLE / CSV ===== */
+$("bExpG").onclick = async ()=>{
+ if(vista().length===0){ alert("No hay datos para exportar."); return; }
+ const b=$("bExpG"); b.disabled=true; b.textContent="EXPORTANDO...";
+ try{
+  const payload = JSON.stringify(dt.map(r=>({fecha:r["Fecha Carga"],consecutivo:r["Numero Consecutivo"],packingList:r["Packing List No."],srNo:r["Sr. No."],partNo:r["Part No."],desc:r["Descrtion"],qty:r["Qty"],caseNo:r["Case No."],ubicacion:r["Ubicacion"]??""})));
+  // text/plain + no-cors: evita el preflight que Apps Script no admite; el script recibe el JSON en e.postData.contents
+  await fetch(URL_WEB_APP,{method:"POST",mode:"no-cors",headers:{"Content-Type":"text/plain;charset=utf-8"},body:payload});
+  alert("Sincronización con Google Sheets exitosa.");
+ }catch(ex){ alert("Error al exportar a Google Sheets: "+ex.message); }
+ finally{ b.disabled=false; b.textContent="2. Exportar Google"; }
+};
+$("bCSV").onclick = ()=>{
+ if(vista().length===0){ alert("No hay datos para exportar."); return; }
+ try{
+  const q=s=>'"'+String(s??"").replace(/"/g,'""')+'"';
+  const lineas=[COLS.map(q).join(",")].concat(dt.map(r=>COLS.map(c=>q(r[c])).join(",")));
+  const d=new Date(), nombre=`PackingList_Exportado_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.csv`;
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob(["\uFEFF"+lineas.join("\r\n")+"\r\n"],{type:"text/csv;charset=utf-8"}));
+  a.download=nombre; document.body.appendChild(a); a.click(); a.remove();
+  alert("Archivo CSV exportado exitosamente.");
+ }catch(ex){ alert("Error al exportar CSV: "+ex.message); }
+};
+
+/* ===== QR: VISTA PREVIA Y ETIQUETAS ===== */
+const urlFicha = caso => URL_WEB_APP+"?caseNo="+encodeURIComponent(caso);
+const urlQR = (u,t)=>`https://api.qrserver.com/v1/create-qr-code/?size=${t}x${t}&data=`+encodeURIComponent(u);
+function actualizarQR(){
+ const img=$("qr");
+ if(!current){ img.removeAttribute("src"); return; }
+ img.onerror=()=>img.removeAttribute("src");
+ img.src=urlQR(urlFicha(current["Case No."]??""),250);
+}
+$("bPrint").onclick = ()=>{
+ if(vista().length===0){ alert("No hay registros para generar etiquetas."); return; }
+ const v=vista(), sel=v.filter(r=>selected.has(r));
+ filasAExportar = sel.length>0 ? sel : dt.slice();
+ const primera=filasAExportar[0]["Case No."], ultima=filasAExportar[filasAExportar.length-1]["Case No."];
+ const msg = primera===ultima
+  ? `Se imprimirán las etiquetas correspondientes a la caja: '${primera}'.\n¿Desea continuar?`
+  : `Se imprimirán las etiquetas desde la caja '${primera}' hasta la caja '${ultima}'.\n¿Desea continuar con la impresión?`;
+ if(confirm(msg)) imprimirEtiquetas();
+};
+async function imprimirEtiquetas(){
+ const cont=$("print"); cont.innerHTML="";
+ for(let i=0;i<filasAExportar.length;i+=2){
+  const pg=document.createElement("div"); pg.className="pg";
+  for(let k=i;k<Math.min(i+2,filasAExportar.length);k++){
+   const r=filasAExportar[k], cons=r["Numero Consecutivo"]||"00000";
+   const et=document.createElement("div"); et.className="et";
+   et.innerHTML=`<div class="emp">MOTO GALERÍA S.A. DE C.V.</div><div class="num">${esc(cons)}</div><div class="qrw"><img alt="" src="${esc(urlQR(urlFicha(r["Case No."]),200))}"></div>
+   <table><colgroup><col style="width:22%"><col style="width:43%"><col style="width:15%"><col style="width:20%"></colgroup>
+   <tr><th>CÓDIGO</th><th>DESCRIPCIÓN</th><th>CANTIDAD</th><th>CAJA</th></tr>
+   <tr><td>${esc(r["Part No."])}</td><td>${esc(r["Descrtion"])}</td><td class="c">${esc(r["Qty"])}</td><td>${esc(r["Case No."])}</td></tr></table>
+   <div class="dest">DESTINO: ALMACÉN GENERAL TUXTLA</div>`;
+   pg.appendChild(et);
+  }
+  cont.appendChild(pg);
+ }
+ const imgs=[...cont.querySelectorAll("img")];
+ await Promise.all(imgs.map(im=>new Promise(res=>{
+  const fallo=()=>{ const d=document.createElement("div"); d.textContent="Sin QR"; im.replaceWith(d); res(); };
+  if(im.complete) return im.naturalWidth?res():fallo();
+  im.onload=res; im.onerror=fallo;
+ })));
+ window.print();
+}
+</script>
+</body>
+</html>
